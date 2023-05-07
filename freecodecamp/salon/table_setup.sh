@@ -1,6 +1,8 @@
 PSQL="psql --username=freecodecamp --dbname=salon -t --no-align -c"
 
 echo $($PSQL "
+  DROP TABLE IF EXISTS customers, services, appointments;
+
   CREATE TABLE customers(
     customer_id SERIAL PRIMARY KEY,
     phone VARCHAR(50) UNIQUE,
@@ -25,7 +27,7 @@ echo $($PSQL "
 
     INSERT INTO services(name)
       VALUES 
-        ('Food'),
-        ('Music'),
-        ('Massage');
+        ('cut'),
+        ('dye'),
+        ('massage');
 ")

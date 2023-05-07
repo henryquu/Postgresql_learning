@@ -1,70 +1,99 @@
 #!/bin/bash
 
-PSQL="psql --username=freecodecamp --dbname=salon -t --no-align -c"
+PSQL="psql --username=freecodecamp --dbname=salon -t -c"
 
-
-SERVICE_MENU() {
+GET_SERVICE_ID(){
   # print list of services
-  SERVICES=$($PSQL "
-    SELECT service_id, name 
-      FROM services;
-  ")
-  echo "$SERVICES" | sed 's/|/) /'
+  echo -e "\nAvailable services"
+  echo "$SERVICES" | while read SERVICE_ID BAR NAME
+  do
+    echo "$SERVICE_ID) $NAME"
+  done
 
-  # get service id from customer 
+  # get service id from customer
   echo -e "\nChoose the service:"
-  read SERVICE_ID
+  read SERVICE_ID_SELECTED
 
   # if input is not a number
-  if [[ ! $SERVICE_ID =~ ^[0-9]+$ ]]
+  if [[ ! $SERVICE_ID_SELECTED =~ ^[0-9]+$ ]]
   then
-    echo -e "\nInput a number!"
-    SERVICE_MENU
+    GET_SERVICE_ID
   fi
-  
-  #get the name of the service
-  SERVICE_NAME=$($PSQL "
-    SELECT name
-      FROM services
-      WHERE service_id = $SERVICE_ID
-  ")
+}
 
-  # if service doesn't exist
-  if [[ -z $SERVICE_NAME ]]
-  then
-    echo -e "\nInput a number from the avaible group!"
-    SERVICE_MENU
-  fi
+SERVICE_MENU() {
+  # get list of services 
+  SERVICES=$($PSQL "
+    SELECT service_id, name 
+      FROM services
+      ORDER BY service_id
+  ")
+  
+  # get a valid service
+  while [[ -z $SERVICE_SELECTED ]]
+  do
+    GET_SERVICE_ID
+
+    # get the name of the service
+    SERVICE_SELECTED=$($PSQL "
+      SELECT name
+        FROM services
+        WHERE service_id = $SERVICE_ID_SELECTED
+    ")
+  done
+  # proceed to collecting user data
+  CUSTOMER_DATA
 }
 
 CUSTOMER_DATA(){
   # get phone number from customer
-  while [[ -z $PHONE_NUMBER ]]
+  while [[ -z $CUSTOMER_PHONE ]]
   do
-    echo -e "\n What's your phone number?"
-    read PHONE_NUMBER
+    echo -e "\nWhat's your phone number?"
+    read CUSTOMER_PHONE
   done
 
   # get customer's name
-  NAME=$($PSQL "
+  CUSTOMER_NAME=$($PSQL "
     SELECT name 
       FROM customers
-      WHERE phone = '$PHONE_NUMBER'
+      WHERE phone = '$CUSTOMER_PHONE'
   ")
 
   # name not in database
-  if [[ -z $NAME ]]
+  if [[ -z $CUSTOMER_NAME ]]
   then
     echo -e "\nWhat's your name?"
-    read NAME
+    read CUSTOMER_NAME
 
     # new customer inserted
     CUSTOMER_INSERT=$($PSQL "
-      INSERT INTO customers(phone, name)
-        VALUES ('$PHONE_NUMBER', '$NAME')
+      INSERT INTO customers(name, phone)
+        VALUES ('$CUSTOMER_NAME', '$CUSTOMER_PHONE')
     ")
+  fi
+
+  # get customer id
+  CUSTOMER_ID=$($PSQL "
+    SELECT customer_id
+      FROM customers
+      WHERE phone = '$CUSTOMER_PHONE'
+  ")
+
+  echo -e "When would you like to make an appointment?"
+  read SERVICE_TIME
+
+  # insert the appointment
+  APPOINTMENT_INSERTION=$($PSQL "
+    INSERT INTO appointments(customer_id, service_id, time)
+      VALUES ($CUSTOMER_ID, $SERVICE_ID_SELECTED, '$SERVICE_TIME')
+  ")
+  
+  # appointment is successfully added
+  if [[ $APPOINTMENT_INSERTION == "INSERT 0 1" ]]
+  then
+    echo I have put you down for a $SERVICE_SELECTED at $SERVICE_TIME, $CUSTOMER_NAME.
   fi
 }
 
 SERVICE_MENU
-CUSTOMER_DATA
